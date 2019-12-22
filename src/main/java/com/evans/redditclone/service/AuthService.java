@@ -1,5 +1,7 @@
 package com.evans.redditclone.service;
 
+import com.evans.redditclone.dto.AuthResponseDto;
+import com.evans.redditclone.dto.LoginDto;
 import com.evans.redditclone.dto.RegisterDto;
 import com.evans.redditclone.exceptions.RedditCloneException;
 import com.evans.redditclone.model.NotificationEmail;
@@ -7,7 +9,12 @@ import com.evans.redditclone.model.User;
 import com.evans.redditclone.model.VerificationToken;
 import com.evans.redditclone.repository.UserRepository;
 import com.evans.redditclone.repository.VerificationTokenRepository;
+import com.evans.redditclone.security.JwtProvider;
 import lombok.AllArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,10 +26,13 @@ import java.util.UUID;
 @Service
 @AllArgsConstructor
 public class AuthService {
+
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final VerificationTokenRepository verificationTokenRepository;
     private final MailService mailService;
+    private AuthenticationManager authenticationManager;
+    private JwtProvider jwtProvider;
 
     @Transactional
     public void register(RegisterDto registerDto) {
@@ -61,8 +71,17 @@ public class AuthService {
     public void fetchAndEnableUser(VerificationToken verificationToken) {
         String username = verificationToken.getUser().getUsername();
         User user = userRepository.findByUsername(username).orElseThrow(() -> new RedditCloneException(
-                "User not found with name " + username));
+                "User with name " + username + "not found"));
         user.setEnabled(true);
         userRepository.save(user);
+    }
+
+    public AuthResponseDto login(LoginDto loginDto) {
+        Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                loginDto.getUsername(),
+                loginDto.getPassword()));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String authToken = jwtProvider.generateToken(authentication);
+        return new AuthResponseDto(loginDto.getUsername(), authToken);
     }
 }
