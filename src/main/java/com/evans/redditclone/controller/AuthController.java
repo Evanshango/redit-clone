@@ -18,4 +18,10 @@ public class AuthController {
         authService.register(registerDto);
         return new ResponseEntity<>("User registered", HttpStatus.OK);
     }
+
+    @GetMapping("account-verification/{token}")
+    public ResponseEntity<String> verifyAccount(@PathVariable String token){
+        authService.verifyAccount(token);
+        return new ResponseEntity<>("Account activated", HttpStatus.OK);
+    }
 }

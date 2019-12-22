@@ -1,6 +1,7 @@
 package com.evans.redditclone.service;
 
 import com.evans.redditclone.dto.RegisterDto;
+import com.evans.redditclone.exceptions.RedditCloneException;
 import com.evans.redditclone.model.NotificationEmail;
 import com.evans.redditclone.model.User;
 import com.evans.redditclone.model.VerificationToken;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -35,7 +37,8 @@ public class AuthService {
 
         String token = generateVerificationToken(user);
         mailService.sendMail(new NotificationEmail("Please activate your account", user.getEmail(),
-                "Thank you for signing up on RedditClone, Please click this link to activate your account : http://localhost:8000/api/auth/account-verification " + token));
+                "Thank you for signing up on RedditClone, Please click this link to activate your account :" +
+                        " http://localhost:8000/api/auth/account-verification/" + token));
     }
 
     private String generateVerificationToken(User user) {
@@ -46,5 +49,20 @@ public class AuthService {
 
         verificationTokenRepository.save(verificationToken);
         return token;
+    }
+
+    public void verifyAccount(String token) {
+        Optional<VerificationToken> verificationToken = verificationTokenRepository.findByToken(token);
+        verificationToken.orElseThrow(() -> new RedditCloneException("Invalid token"));
+        fetchAndEnableUser(verificationToken.get());
+    }
+
+    @Transactional
+    public void fetchAndEnableUser(VerificationToken verificationToken) {
+        String username = verificationToken.getUser().getUsername();
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new RedditCloneException(
+                "User not found with name " + username));
+        user.setEnabled(true);
+        userRepository.save(user);
     }
 }
